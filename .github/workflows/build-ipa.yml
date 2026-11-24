@@ -1,0 +1,55 @@
+name: Build GeminiShell IPA (iOS 15+)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ipa:
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: |
+          xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build unsigned Release app for iOS device (arm64)
+        run: |
+          xcodebuild \
+            -project GeminiShell.xcodeproj \
+            -scheme GeminiShell \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM="" \
+            clean build
+
+      - name: Package unsigned IPA
+        run: |
+          mkdir -p dist/Payload
+          cp -R build/Build/Products/Release-iphoneos/GeminiShell.app dist/Payload/
+          cd dist
+          zip -r -y GeminiShell-iOS15-unsigned.ipa Payload
+          ls -lh GeminiShell-iOS15-unsigned.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GeminiShell-iOS15-unsigned-ipa
+          path: dist/GeminiShell-iOS15-unsigned.ipa
+          retention-days: 30
